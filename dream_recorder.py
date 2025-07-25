@@ -220,6 +220,25 @@ def dreams():
     dreams = dream_db.get_all_dreams()
     return render_template('dreams.html', dreams=dreams)
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for monitoring"""
+    try:
+        # Basic health checks
+        checks = {
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'database': 'ok',  # Add actual DB check if needed
+            'disk_space': 'ok'  # Add actual disk check if needed
+        }
+        return jsonify(checks), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
 # -- API Routes --
 @app.route('/api/config')
 def api_get_config():

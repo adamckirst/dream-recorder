@@ -1,0 +1,59 @@
+# Git and development files
+.git
+.gitignore
+README.md
+docs/
+*.md
+.cursor/
+.github/
+bump_version.sh
+VERSION
+
+# Build artifacts and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Docker files (avoid recursion)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# 3D printing files (large and unnecessary)
+3DAssets/
+
+# Test files
+tests/
+
+# Runtime data directories (will be in volumes)
+logs/
+media/
+db/
+*.log
+*.db
+*.sqlite
+
+# Environment files (handled separately)
+.env*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
