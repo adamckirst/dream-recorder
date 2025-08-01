@@ -389,6 +389,143 @@ if dmesg | grep -q "EXT4-fs error" && dmesg | grep "EXT4-fs error" | tail -1 | g
 else
     log_info "No new file system errors detected"
 fi
+# =============================
+# 9. API Key Validation (inside container)
+# =============================
+log_step "Testing API keys inside the container"
+if docker compose exec dream_recorder python scripts/test_openai_key.py; then
+    log_info "OpenAI API key is valid."
+else
+    log_warn "OpenAI API key is invalid. Please check your .env file."
+fi
+if docker compose exec dream_recorder python scripts/test_luma_key.py; then
+    log_info "Luma Labs API key is valid."
+else
+    log_warn "Luma Labs API key is invalid. Please check your .env file."
+fi
+
+log_step "Enabling lingering for user services to start at boot"
+if sudo loginctl enable-linger $USER; then
+    log_info "Lingering enabled for $USER. User services will start at boot."
+else
+    log_warn "Could not enable lingering. You may need to run: sudo loginctl enable-linger $USER"
+fi
+
+log_step "Setting up GPIO service as a user systemd service"
+GPIO_SERVICE_FILE="$SYSTEMD_USER_DIR/dream_recorder_gpio.service"
+LOGS_DIR="$SCRIPT_DIR/logs"
+mkdir -p "$LOGS_DIR"
+
+cat > "$GPIO_SERVICE_FILE" <<EOL
+[Unit]
+Description=Dream Recorder GPIO Service
+After=network.target dream_recorder_docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=$SCRIPT_DIR
+ExecStart=/usr/bin/python3 $SCRIPT_DIR/gpio_service.py
+StandardOutput=append:$LOGS_DIR/gpio_service.log
+StandardError=append:$LOGS_DIR/gpio_service.log
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+EOL
+
+log_info "Created user systemd service at $GPIO_SERVICE_FILE."
+
+log_step "Reloading user systemd daemon and enabling GPIO service"
+systemctl --user daemon-reload
+systemctl --user enable dream_recorder_gpio.service && \
+    log_info "Enabled dream_recorder_gpio.service for user $USER." || \
+    log_warn "Could not enable dream_recorder_gpio.service. You may need to log in with a desktop session first."
+
+log_step "Starting GPIO service now"
+systemctl --user start dream_recorder_gpio.service && \
+    log_info "GPIO service started." || \
+    log_warn "Could not start GPIO service. You may need to log in with a desktop session first."
+
+# =============================
+# 10. Chromium Kiosk Autostart Setup
+# =============================
+log_step "Setting up Chromium kiosk mode autostart"
+AUTOSTART_DIR="$HOME/.config/autostart"
+mkdir -p "$AUTOSTART_DIR"
+KIOSK_DESKTOP_FILE="$AUTOSTART_DIR/dream_recorder_kiosk.desktop"
+
+# Path to the loading screen HTML (absolute path)
+LOADING_SCREEN_SRC="$SCRIPT_DIR/templates/loading.html"
+LOADING_SCREEN_DST="$SCRIPT_DIR/templates/loading.kiosk.html"
+
+# Detect Chromium or Chrome
+if command -v chromium-browser &> /dev/null; then
+    BROWSER_CMD="chromium-browser"
+elif command -v chromium &> /dev/null; then
+    BROWSER_CMD="chromium"
+elif command -v google-chrome &> /dev/null; then
+    BROWSER_CMD="google-chrome"
+else
+    log_warn "Chromium or Chrome not found. Please install Chromium for kiosk mode."
+    BROWSER_CMD="chromium-browser"
+fi
+
+# Inject the real app URL into the loading screen HTML
+if [ -f "$LOADING_SCREEN_SRC" ]; then
+    sed "s#const target = window.KIOSK_APP_URL || \"http://localhost:5000\";#const target = '$KIOSK_URL';#" "$LOADING_SCREEN_SRC" > "$LOADING_SCREEN_DST"
+    log_info "Injected KIOSK_URL into loading screen HTML."
+else
+    log_error "Loading screen HTML not found at $LOADING_SCREEN_SRC."
+    exit 1
+fi
+
+cat > "$KIOSK_DESKTOP_FILE" <<EOL
+[Desktop Entry]
+Type=Application
+Name=Dream Recorder Kiosk
+Exec=$BROWSER_CMD --kiosk --no-first-run --disable-session-crashed-bubble --disable-infobars --use-fake-ui-for-media-stream --app=file://$LOADING_SCREEN_DST
+X-GNOME-Autostart-enabled=true
+EOL
+
+if [ -f "$KIOSK_DESKTOP_FILE" ]; then
+    log_info "Created autostart desktop entry at $KIOSK_DESKTOP_FILE."
+else
+    log_error "Failed to create autostart desktop entry at $KIOSK_DESKTOP_FILE."
+fi
+
+# =============================
+# 11. Screen Blanking Disable Script
+# =============================
+log_step "Creating script to disable screen blanking"
+SCREEN_SCRIPT="$HOME/disable-screen-blanking.sh"
+cat > "$SCREEN_SCRIPT" <<EOL
+#!/bin/bash
+xset s off
+xset s noblank
+xset -dpms
+EOL
+chmod +x "$SCREEN_SCRIPT"
+
+BLANKING_AUTOSTART="$AUTOSTART_DIR/disable-screen-blanking.desktop"
+cat > "$BLANKING_AUTOSTART" <<EOL
+[Desktop Entry]
+Type=Application
+Name=Disable Screen Blanking
+Exec=$SCREEN_SCRIPT
+X-GNOME-Autostart-enabled=true
+EOL
+
+if [ -f "$BLANKING_AUTOSTART" ]; then
+    log_info "Created autostart entry to disable screen blanking at $BLANKING_AUTOSTART."
+else
+    log_error "Failed to create autostart entry for screen blanking."
+fi
+
+# =============================
+# 12. Final Summary
+# =============================
+log_step "Setting desktop wallpaper to @0.jpg"
+python3 "$SCRIPT_DIR/scripts/set_pi_background.py"
 
 # =============================
 # 12. Success!
