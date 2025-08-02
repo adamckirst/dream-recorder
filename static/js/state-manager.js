@@ -17,7 +17,8 @@ const StateManager = {
     // Input modes (kept for input simulator compatibility)
     MODES: {
         SINGLE_TAP: 'single_tap',
-        DOUBLE_TAP: 'double_tap'
+        DOUBLE_TAP: 'double_tap',
+        TRIPLE_TAP: 'triple_tap'
     },
 
     // Current state and mode
@@ -27,6 +28,7 @@ const StateManager = {
     previousState: null,
     stateChangeCallbacks: [],
     playbackTimer: null,
+    isScreenAsleep: false,
 
     // Initialize state manager
     async init() {
@@ -265,6 +267,38 @@ const StateManager = {
         }
     },
 
+    // Screen sleep/wake functionality
+    toggleScreenSleep() {
+        console.log('Toggling screen sleep');
+        this.isScreenAsleep = !this.isScreenAsleep;
+        
+        const body = document.body;
+        if (this.isScreenAsleep) {
+            body.classList.add('screen-sleep');
+        } else {
+            body.classList.remove('screen-sleep');
+        }
+        
+        // Emit screen sleep state change event
+        const event = new CustomEvent('screenSleepChange', { 
+            detail: { isAsleep: this.isScreenAsleep } 
+        });
+        document.dispatchEvent(event);
+    },
+
+    wakeScreen() {
+        if (this.isScreenAsleep) {
+            console.log('Waking screen');
+            this.isScreenAsleep = false;
+            document.body.classList.remove('screen-sleep');
+            
+            const event = new CustomEvent('screenSleepChange', { 
+                detail: { isAsleep: false } 
+            });
+            document.dispatchEvent(event);
+        }
+    },
+
     // Handle recording start
     startRecording() {
         if (this.currentState === this.STATES.RECORDING) {
@@ -306,8 +340,8 @@ const StateManager = {
                     // Single tap during playback shows previous video
                     this.playPreviousVideo();
                 } else if (this.currentState === this.STATES.CLOCK) {
-                    // Single tap in clock state plays most recent video
-                    this.playLatestVideo();
+                    // Single tap in clock state toggles screen sleep
+                    this.toggleScreenSleep();
                 } else if (this.currentState === this.STATES.ERROR) {
                     // Hide errorDiv and return to clock
                     if (window.errorDiv) {
@@ -318,6 +352,11 @@ const StateManager = {
                 break;
                 
             case 'double_tap':
+                // Wake screen first if asleep
+                if (this.isScreenAsleep) {
+                    this.wakeScreen();
+                }
+                
                 if (this.currentState === this.STATES.CLOCK) {
                     // Double tap in clock state starts recording
                     this.startRecording();
@@ -329,6 +368,19 @@ const StateManager = {
                     if (window.stopRecording) {
                         window.stopRecording();
                     }
+                    this.updateState(this.STATES.CLOCK);
+                }
+                break;
+                
+            case 'triple_tap':
+                // Wake screen if asleep
+                if (this.isScreenAsleep) {
+                    this.wakeScreen();
+                } else if (this.currentState === this.STATES.CLOCK) {
+                    // Triple tap in clock state plays most recent video (dream showcase)
+                    this.playLatestVideo();
+                } else if (this.currentState === this.STATES.PLAYBACK) {
+                    // Triple tap during playback returns to clock
                     this.updateState(this.STATES.CLOCK);
                 }
                 break;

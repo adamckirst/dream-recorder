@@ -42,6 +42,7 @@
   "GPIO_FLASK_URL": "http://localhost:5000",
   "GPIO_SINGLE_TAP_ENDPOINT": "/api/gpio_single_tap",
   "GPIO_DOUBLE_TAP_ENDPOINT": "/api/gpio_double_tap",
+  "GPIO_TRIPLE_TAP_ENDPOINT": "/api/gpio_triple_tap",
   "GPIO_SINGLE_TAP_MAX_DURATION": 0.5,
   "GPIO_DOUBLE_TAP_MAX_INTERVAL": 0.7,
   "GPIO_DEBOUNCE_TIME": 0.05,

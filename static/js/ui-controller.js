@@ -3,10 +3,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Input simulator buttons
     const singleTapBtn = document.getElementById('singleTapBtn');
     const doubleTapBtn = document.getElementById('doubleTapBtn');
+    const tripleTapBtn = document.getElementById('tripleTapBtn');
     
     // Input simulator handlers
     singleTapBtn.addEventListener('click', () => simulateInput('single_tap'));
     doubleTapBtn.addEventListener('click', () => simulateInput('double_tap'));
+    if (tripleTapBtn) {
+        tripleTapBtn.addEventListener('click', () => simulateInput('triple_tap'));
+    }
     
     // Listen for state changes
     document.addEventListener('stateChange', (event) => {

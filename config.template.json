@@ -337,6 +337,13 @@
         "type": "string"
     },
     {
+        "name": "GPIO_TRIPLE_TAP_ENDPOINT",
+        "category": "GPIO",
+        "description": "API endpoint for triple-tap button events.",
+        "default": "/api/gpio_triple_tap",
+        "type": "string"
+    },
+    {
         "name": "GPIO_SINGLE_TAP_MAX_DURATION",
         "category": "GPIO",
         "description": "Max duration (seconds) for a single tap to be recognized.",

@@ -281,6 +281,18 @@ def gpio_double_tap():
             logger.error(f"Error in API gpio_double_tap: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/api/gpio_triple_tap', methods=['POST'])
+def gpio_triple_tap():
+    """API endpoint for triple tap from GPIO controller."""
+    try:
+        # Notify all clients of a triple tap event
+        socketio.emit('device_event', {'eventType': 'triple_tap'})
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        if logger:
+            logger.error(f"Error in API gpio_triple_tap: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 @app.route('/api/dreams/<int:dream_id>', methods=['DELETE'])
 def delete_dream(dream_id):
     """Delete a dream and its associated files."""

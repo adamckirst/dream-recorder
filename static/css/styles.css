@@ -5,6 +5,16 @@ body {
     background-color: #000000;
     height: 400px;
     overflow: hidden;
+    transition: opacity 0.5s ease-in-out;
+}
+
+/* Screen sleep functionality */
+body.screen-sleep {
+    opacity: 0;
+}
+
+body.screen-sleep * {
+    pointer-events: none;
 }
 
 .container {
