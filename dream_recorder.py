@@ -10,7 +10,7 @@ import gevent
 import io
 import argparse
 
-from flask import Flask, render_template, jsonify, request, send_file
+from flask import Flask, render_template, jsonify, request, send_file, Blueprint
 from flask_socketio import SocketIO, emit
 from functions.dream_db import DreamDB
 from functions.audio import create_wav_file, process_audio
@@ -45,6 +45,9 @@ wav_file = None
 
 # List to store incoming audio chunks
 audio_chunks = []
+
+# WiFi Blueprint for handling WiFi-related routes
+wifi_bp = Blueprint("wifi", __name__)
 
 # =============================
 # Flask App & Extensions Initialization
@@ -344,6 +347,36 @@ def notify_config_reload():
     socketio.emit('reload_config')
     return jsonify({'status': 'reload event emitted'})
 
+# GET /api/wifi/networks
+@wifi_bp.route("/api/wifi/networks", methods=["GET"])
+def wifi_list():
+    return jsonify(wifi.scan())
+
+# POST /api/wifi/connect { "ssid": "...", "password": "..." }
+@wifi_bp.route("/api/wifi/connect", methods=["POST"])
+def wifi_connect():
+    data = request.get_json(force=True)
+    ok = wifi.connect(data["ssid"], data.get("password", ""))
+    return ("", 204) if ok else ("Failed", 500)
+
+# GET /api/wifi/current
+@wifi_bp.route("/api/wifi/current", methods=["GET"])
+def wifi_current():
+    info = wifi.current()
+    return (jsonify(info) if info else ("Not connected", 404))
+
+# DELETE /api/wifi/<ssid>
+@wifi_bp.route("/api/wifi/<ssid>", methods=["DELETE"])
+def wifi_forget(ssid):
+    ok = wifi.forget(ssid)
+    return ("", 204) if ok else ("Failed", 500)
+
+# Simple captive-portal probes
+@wifi_bp.route("/generate_204")
+@wifi_bp.route("/hotspot-detect.html")
+def captive_probe():
+    return "", 204
+
 # -- Media Routes --
 @app.route('/media/<path:filename>')
 def serve_media(filename):
@@ -364,6 +397,8 @@ def serve_thumbnail(filename):
 # =============================
 # Main Execution Block
 # =============================
+
+app.register_blueprint(wifi_bp)
 
 if __name__ == '__main__':  # pragma: no cover
     # Parse command-line arguments
