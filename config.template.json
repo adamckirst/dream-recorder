@@ -358,6 +358,13 @@
         "type": "float"
     },
     {
+        "name": "GPIO_LONG_PRESS_DURATION",
+        "category": "GPIO",
+        "description": "Duration (seconds) for a long press to trigger shutdown.",
+        "default": 5.0,
+        "type": "float"
+    },
+    {
         "name": "GPIO_DEBOUNCE_TIME",
         "category": "GPIO",
         "description": "Debounce time (seconds) for button presses.",

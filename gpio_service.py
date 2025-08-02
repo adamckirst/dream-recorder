@@ -11,6 +11,7 @@ import time
 import logging
 import requests
 import argparse
+import subprocess
 from enum import Enum
 from functions.config_loader import get_config
 import sys
@@ -74,16 +75,18 @@ class GPIOController:
         self.callbacks[pattern] = callback_func
         logger.info(f"Registered callback for {pattern.name}")
     
-    def start_monitoring(self, single_tap_max=None, double_tap_max_interval=None):
+    def start_monitoring(self, single_tap_max=None, double_tap_max_interval=None, long_press_duration=None):
         """
         Start monitoring for touch sensor events with specific pattern detection.
         
         Args:
             single_tap_max (float): Maximum duration for a single tap
             double_tap_max_interval (float): Maximum interval between taps for a double tap
+            long_press_duration (float): Duration for a long press to trigger
         """
         self.single_tap_max = single_tap_max or float(get_config()['GPIO_SINGLE_TAP_MAX_DURATION'])
         self.double_tap_max_interval = double_tap_max_interval or float(get_config()['GPIO_DOUBLE_TAP_MAX_INTERVAL'])
+        self.long_press_duration = long_press_duration or float(get_config()['GPIO_LONG_PRESS_DURATION'])
         self.is_running = True
         logger.info("Starting GPIO monitoring loop")
         
@@ -114,6 +117,16 @@ class GPIOController:
                                         if TouchPattern.TRIPLE_TAP in self.callbacks:
                                             self.callbacks[TouchPattern.TRIPLE_TAP]()
                                     self.tap_count = 0
+
+                # Check for long press (while button is currently pressed)
+                if current_state and self.press_start_time > 0:
+                    press_duration = current_time - self.press_start_time
+                    if press_duration >= self.long_press_duration:
+                        if TouchPattern.LONG_PRESS in self.callbacks:
+                            self.callbacks[TouchPattern.LONG_PRESS]()
+                        # Reset state to prevent multiple long press triggers
+                        self.press_start_time = 0
+                        self.tap_count = 0
 
                 # Check for tap timeouts
                 if self.tap_count == 1 and current_time - self.last_tap_time > self.double_tap_max_interval:
@@ -339,6 +352,18 @@ def main():
             if logger:
                 logger.error(f"Error sending triple tap: {str(e)}")
     
+    def long_press_callback():
+        logger.warning("Long press detected (5+ seconds), initiating system shutdown...")
+        try:
+            # Perform system shutdown
+            subprocess.run(['sudo', 'poweroff'], check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to shutdown system: {e}")
+        except FileNotFoundError:
+            logger.error("poweroff command not found. Unable to shutdown system.")
+        except Exception as e:
+            logger.error(f"Unexpected error during shutdown: {e}")
+    
     # Initialize GPIO with retry logic
     max_retries = 3
     retry_delay = 2
@@ -357,6 +382,7 @@ def main():
             controller.register_callback(TouchPattern.SINGLE_TAP, single_tap_callback)
             controller.register_callback(TouchPattern.DOUBLE_TAP, double_tap_callback)
             controller.register_callback(TouchPattern.TRIPLE_TAP, triple_tap_callback)
+            controller.register_callback(TouchPattern.LONG_PRESS, long_press_callback)
             
             logger.info(f"GPIO Service started successfully. Touch sensor on pin {args.pin}")
             break
@@ -376,7 +402,8 @@ def main():
     try:
         controller.start_monitoring(
             single_tap_max=args.single_tap_max,
-            double_tap_max_interval=args.double_tap_max_interval
+            double_tap_max_interval=args.double_tap_max_interval,
+            long_press_duration=float(get_config()['GPIO_LONG_PRESS_DURATION'])
         )
     except KeyboardInterrupt:
         logger.info("GPIO Service shutting down...")
